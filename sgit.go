@@ -7,13 +7,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/ini.v1"
 )
 
 type Repository struct {
 	workdir string
 	gitdir  string
 	confdir string
-	conf    string
+	conf    *ini.File
 }
 
 var (
@@ -56,7 +58,7 @@ func cmd_init(path *string) {
 
 	fmt.Println("path:", *path)
 	fmt.Println("Initializing sgit")
-	repo_init(path, *forced)
+	repo_create(path)
 }
 
 func repo_init(path *string, force bool) {
@@ -76,9 +78,28 @@ func repo_init(path *string, force bool) {
 
 	// Read configuration file
 	rep.confdir = repo_file(true, "config")
-	fmt.Println(rep)
 
-	fmt.Println("repo_init")
+	if _, err := os.Stat(rep.confdir); err == nil {
+		cfg, err := ini.Load(rep.confdir + "/config")
+		rep.conf = cfg
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(cfg.Section("core").Key("repositoryformatversion").String())
+
+	} else if !force {
+		fmt.Println("No configuration file found")
+	}
+
+	if !force {
+		vers, err := rep.conf.Section("core").Key("repositoryformatversion").Int()
+		if err != nil {
+			log.Fatal(err)
+		}
+		if vers != 0 {
+			panic("Repository format version " + fmt.Sprint(vers) + " not supported")
+		}
+	}
 }
 
 func repo_path(path string) string {
@@ -148,6 +169,6 @@ func repo_dir(mkdir bool, opt ...string) string {
 	return ""
 }
 
-func repo_create() {
-	fmt.Println("Creating repository")
+func repo_create(path *string) {
+	repo_init(path, true)
 }
