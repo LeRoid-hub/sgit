@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Repository struct {
@@ -74,7 +75,7 @@ func repo_init(path *string, force bool) {
 	}
 
 	// Read configuration file
-	rep.confdir = repo_file("config/")
+	rep.confdir = repo_file(true, "config")
 	fmt.Println(rep)
 
 	fmt.Println("repo_init")
@@ -84,29 +85,42 @@ func repo_path(path string) string {
 	return filepath.Join(rep.gitdir, path)
 }
 
-func opt_bool(opt []bool) bool {
+func opt_file_slice(opt []string) (string, error) {
 	if len(opt) > 0 {
-		return true
+		p := strings.Join(opt[:len(opt)-1], "")
+		return p, nil
 	} else {
-		return false
+		return "", fmt.Errorf("no file specified")
 	}
 }
 
-func repo_file(path string, opt ...bool) string {
-	mkdir := opt_bool(opt)
+func opt_file(opt []string) (string, error) {
+	if len(opt) > 0 {
+		return strings.Join(opt, ""), nil
+	} else {
+		return "", fmt.Errorf("no file specified")
+	}
+}
 
-	fmt.Println("path:", path)
-	p := (path)[:len(path)-1]
+func repo_file(mkdir bool, opt ...string) string {
+	path, err := opt_file_slice(opt)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	if repo_dir(p, mkdir) != "" {
+	if repo_dir(mkdir, path) != "" {
 		return repo_path(path)
 	}
 	return ""
 }
 
-func repo_dir(path string, opt ...bool) string {
+func repo_dir(mkdir bool, opt ...string) string {
+	path, err := opt_file(opt)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	path = repo_path(path)
-	mkdir := opt_bool(opt)
 
 	file, err := os.Stat(path)
 	if err != nil {
